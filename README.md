@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Wind Forecast Analytics
 
 Historical analysis of UK wind generation forecasts for day-ahead purchasing decisions in January 2026. This is an analytics project, not a live electricity-trading system.
@@ -227,3 +228,6 @@ Tests use clearly identified deterministic synthetic fixtures, mock Elexon HTTP 
 ## AI disclosure
 
 AI assistance was used to investigate the Elexon API, implement the project scaffolding and data integration, and create tests and documentation. Live Elexon values were retrieved for manual verification; unit-test fixtures are synthetic and labelled as such.
+=======
+# uk-wind-forecast-analytics
+>>>>>>> f2b18fa1c7237d17da54e1bccf58b1ab286e67a3
