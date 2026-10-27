@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   getComparison,
-  getForecast,
   getHealth,
   getMetrics,
 } from "./services/api.js";
@@ -53,7 +52,6 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [dataError, setDataError] = useState("");
   const [comparisonData, setComparisonData] = useState(null);
-  const [forecastData, setForecastData] = useState(null);
   const [metricsData, setMetricsData] = useState(null);
 
   const deliveryDate = useMemo(() => nextDate(decisionDate), [decisionDate]);
@@ -79,24 +77,25 @@ export default function App() {
     setLoading(true);
     setDataError("");
     setComparisonData(null);
-    setForecastData(null);
     setMetricsData(null);
 
-    Promise.all([
-      getForecast(decisionDate, cutoffTime),
-      getComparison(decisionDate, cutoffTime),
-      getMetrics(decisionDate, cutoffTime),
-    ]).then(([forecast, comparison, metrics]) => {
-      if (!active) return;
-      setForecastData(forecast);
-      setComparisonData(comparison);
-      setMetricsData(metrics);
-      setLoading(false);
-    }).catch((error) => {
-      if (!active) return;
-      setDataError(error.message);
-      setLoading(false);
-    });
+    async function loadAnalysis() {
+      try {
+        const comparison = await getComparison(decisionDate, cutoffTime);
+        if (!active) return;
+
+        setComparisonData(comparison);
+        if (comparison.metrics_available) {
+          setMetricsData(await getMetrics(decisionDate, cutoffTime));
+        }
+      } catch (error) {
+        if (active) setDataError(error.message);
+      } finally {
+        if (active) setLoading(false);
+      }
+    }
+
+    loadAnalysis();
 
     return () => {
       active = false;
@@ -104,10 +103,14 @@ export default function App() {
   }, [decisionDate, cutoffTime]);
 
   const intervalRows = comparisonData?.comparison ?? [];
-  const lastSelectedPublication = (forecastData?.forecasts ?? []).reduce(
+  const hasDeliveryRecords = intervalRows.some(
+    (row) => row.forecast_generation != null || row.actual_generation_mw != null,
+  );
+  const lastSelectedPublication = intervalRows.reduce(
     (latest, row) => (
-      row.published_at && (!latest || row.published_at > latest)
-        ? row.published_at
+      row.forecast_published_at
+        && (!latest || row.forecast_published_at > latest)
+        ? row.forecast_published_at
         : latest
     ),
     null,
@@ -273,7 +276,7 @@ export default function App() {
                     <strong>Data unavailable</strong>
                     <p>Check the request details above, then retry when the Elexon API is available.</p>
                   </>
-                ) : intervalRows.length ? (
+                ) : hasDeliveryRecords ? (
                   <>
                     <strong>Historical records retrieved · comparison withheld</strong>
                     <p>{comparisonData.limitation}</p>

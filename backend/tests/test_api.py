@@ -199,6 +199,33 @@ def test_forecast_selection_uses_europe_london_cutoff_as_utc() -> None:
     assert upstream.forecast_range[0] == analysis.cutoff_at - timedelta(hours=48)
 
 
+@pytest.mark.parametrize("day", range(1, 32))
+def test_every_january_decision_date_covers_its_next_day(day: int) -> None:
+    decision_date = date(2026, 1, day)
+    delivery_date = decision_date + timedelta(days=1)
+    publication = datetime.combine(decision_date, time(22, 30), tzinfo=UTC)
+    upstream = FakeElexonClient(
+        actual_payload(delivery_date),
+        forecast_payload(delivery_date, publication),
+    )
+
+    analysis = AnalyticsService(upstream).analyze(decision_date, time(23, 0))
+
+    assert upstream.actual_date == delivery_date
+    assert analysis.delivery_date == delivery_date
+    assert analysis.cutoff_at == datetime.combine(decision_date, time(23, 0), tzinfo=UTC)
+    assert len(analysis.forecast) == analysis.expected_intervals == 24
+    assert len(analysis.actual) == 24
+    assert analysis.missing_forecast_hours == []
+    assert analysis.missing_actual_hours == []
+    assert analysis.aligned_count == 24
+    assert all(record.publish_time <= analysis.cutoff_at for record in analysis.forecast)
+    assert [record.start_time for record in analysis.forecast] == _delivery_hours(delivery_date)
+    assert analysis.actual_half_hours == analysis.expected_actual_half_hours == 48
+    if day == 31:
+        assert delivery_date == date(2026, 2, 1)
+
+
 def test_actuals_are_averaged_hourly_only_when_both_half_hours_exist() -> None:
     hours = _delivery_hours(date(2026, 1, 2))
     records = [
@@ -454,6 +481,11 @@ def test_api_validates_date_and_maps_upstream_failure(
     response = client.get(
         "/api/forecast",
         params={"decision_date": "not-a-date"},
+    )
+    assert response.status_code == 422
+    response = client.get(
+        "/api/forecast",
+        params={"decision_date": "2026-01-01", "cutoff_time": "25:00"},
     )
     assert response.status_code == 422
 

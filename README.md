@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # Wind Forecast Analytics
 
 Historical analysis of UK wind generation forecasts for day-ahead purchasing decisions in January 2026. This is an analytics project, not a live electricity-trading system.
@@ -23,7 +22,7 @@ MAE, RMSE, mean bias, and WAPE formulas are implemented and unit tested. Their A
 - [WINDFOR stream documentation](https://bmrs.elexon.co.uk/api-documentation/endpoint/datasets/WINDFOR/stream) — generation forecast records. The docs document `publishDateTimeFrom` and `publishDateTimeTo`, and say an unfiltered request returns the latest forecast. The backend uses only bounded publication-time filters, never a settlement-date filter.
 - [Elexon Wind Generation product](https://bmrs.elexon.co.uk/wind-generation) — describes NESO's **hourly** wind forecast horizon, says forecasts are for wind farms visible to ESO with operational metering, labels forecast values as a single **MW** figure across the available Power Park Modules, and says its graph compares forecasts with actual outturn derived from Generation by Fuel Type. Its product text says forecast evolution is available via APIs. This is authoritative evidence for the product's MW unit and broad generation scope, but it does not define the WINDFOR stream field's exact within-hour averaging/time convention.
 
-Both streams return timezone-aware ISO timestamps in observed records (UTC `Z`). A verified WINDFOR sample is `{"dataset":"WINDFOR","publishTime":"2026-01-01T22:30:00Z","startTime":"2026-01-02T00:00:00Z","generation":18811}`. A query covering publication times on 1 January 2026 returned 584 rows across eight publication timestamps. The stream schema itself does not include a unit or explain whether `startTime` marks an hour-start average, a point estimate, or another hourly convention.
+Both streams return timezone-aware ISO timestamps in observed records (UTC `Z`). A verified WINDFOR sample is `{"dataset":"WINDFOR","publishTime":"2026-01-01T22:30:00Z","startTime":"2026-01-02T00:00:00Z","generation":18811}`. Earlier project notes recorded a query covering publication times on 1 January 2026 returning 584 rows across eight publication timestamps; that wider query was not repeated during the current QA run. The stream schema itself does not include a unit or explain whether `startTime` marks an hour-start average, a point estimate, or another hourly convention.
 
 ### What is verified, assumed, and unresolved
 
@@ -32,7 +31,7 @@ Both streams return timezone-aware ISO timestamps in observed records (UTC `Z`).
 - FUELHH generation is reported as average MW for half-hour periods, and records are identified by `startTime`, settlement date/period, and fuel type.
 - The Wind Generation product describes forecasts as hourly and labels its forecast values in MW. It says the forecast covers wind farms visible to ESO with operational metering and that its outturn comparison is derived from Generation by Fuel Type.
 - WINDFOR responses contain `publishTime`, `startTime`, and a numeric `generation` value. The publication timestamp identifies the forecast issue time in observed records; the API documentation provides publication-time filters.
-- A January 2026 live-data comparison of the 48-hour request window with a wider publication window returned identical selected versions for all 744 default-cutoff next-day delivery hours. This is evidence for this tested month and cutoff, not a general completeness guarantee.
+- Earlier project notes recorded a January 2026 live-data comparison of the 48-hour request window with a wider publication window returning identical selected versions for all 744 default-cutoff next-day delivery hours. This comparison was not independently repeated during the current QA run and is not a general completeness guarantee.
 
 **Application assumptions (not confirmed market or data definitions)**
 
@@ -45,6 +44,10 @@ Both streams return timezone-aware ISO timestamps in observed records (UTC `Z`).
 - Does WINDFOR `startTime` denote the start of the hourly delivery interval, and does `generation` represent average MW across that full hour (rather than an instantaneous/representative value or another statistic)?
 - Does the WINDFOR population of visible, operationally metered Power Park Modules exactly match the population included in FUELHH `fuelType=WIND`? Elexon documents a relationship between the product chart's forecast and Generation-by-Fuel-Type outturn, but the reviewed public material does not establish exact population, exclusions, or aggregation equivalence for these two API datasets.
 - Does the 48-hour history remain complete for other cutoff times, periods, and API conditions? January default-cutoff testing passed, but the public documentation reviewed does not state a pagination or history-completeness guarantee.
+
+### Current validation scope
+
+The current automated suite uses mocked/synthetic Elexon responses and exercises every January decision date, including the February 1 delivery boundary. Controlled live smoke checks in this session covered January 1 and January 31 decision dates, including the January 31 delivery boundary and a changed cutoff. This was not a 31-day live upstream run; avoid describing it as independently verified full-month API completeness.
 
 The official BMRS/API portal links to [Contact Elexon](https://www.elexon.co.uk/contact/). Use that official contact route to request a written data-definition response (or referral to the responsible BMRS/Insights data owner) for the two compatibility questions above, and clarification of the 23:00 market cutoff if a market deadline is required. The contact page could not be independently read in this environment, so no dedicated mailbox or team name is asserted. No response or confirmation has been received.
 
@@ -154,7 +157,7 @@ Troubleshooting:
 
 ## Public deployment preparation
 
-The repository includes configuration for a static Vite frontend on Vercel and the existing Dockerized FastAPI backend on Render. This is deployment preparation only: no account was connected, no repository was published, and no service was provisioned or deployed.
+The repository includes configuration for a static Vite frontend on Vercel and the existing Dockerized FastAPI backend on Render. This is deployment preparation only: the existing GitHub repository is public, but no Vercel/Render account was connected and no service was provisioned or deployed.
 
 ### Platform and current cost considerations
 
@@ -174,10 +177,10 @@ Thus estimated baseline is **$7/month** with eligible Vercel Hobby, or **$27/mon
 - The backend binds to the platform-provided `PORT` (default `8000` locally) and its Docker health check targets that port. Render's platform health check also calls `/api/health`.
 - Forecast validation and metric/chart safeguards are unchanged; metrics remain withheld until compatibility is confirmed.
 
-### Deployment steps (perform only after repository and cost approval)
+### Deployment steps (perform only after account, plan, and cost approval)
 
 1. Review Vercel and Render pricing/terms and confirm whether Vercel Hobby is permitted for this project. Approve the Render Starter recurring charge (currently $7/month) and any applicable Vercel Pro charge (currently $20/month) before provisioning.
-2. Publish the repository to the selected Git provider only after approving publication. Keep the repository name `uk-wind-forecast-analytics`; ensure `.env`, `.env.*` other than example files, `.vercel/`, and credentials remain excluded. Do not add provider tokens to repository files.
+2. Use the existing public repository, `MANASVI011/uk-wind-forecast-analytics`; do not create a duplicate repository. Ensure `.env`, `.env.*` other than example files, `.vercel/`, and credentials remain excluded. Do not add provider tokens to repository files.
 3. In Render, create a Blueprint from that repository and select the root `render.yaml`. Provide `CORS_ORIGINS` when prompted, using the final Vercel origin. Review the paid Starter plan in the final confirmation screen before creating the service. Record the generated backend URL.
 4. In Vercel, import the same repository and set the project root/directory to `frontend`. Select Vite (or use the checked-in `vercel.json` settings), and configure:
 
@@ -223,11 +226,29 @@ Tests use clearly identified deterministic synthetic fixtures, mock Elexon HTTP 
 - The WINDFOR product's unit is identified as MW in Elexon's product documentation, but its stream schema does not define whether each hourly value represents an interval average or a point/other measure, nor whether the exact population matches FUELHH WIND. Keep forecast accuracy metrics and the combined forecast-versus-actual chart disabled pending confirmation from Elexon.
 - The configurable 23:00 Europe/London cutoff is an application assumption, not a confirmed day-ahead market deadline.
 - Forecast retrieval is limited to a 48-hour publication-time lookback. January 2026 default-cutoff selections matched a wider historical response, but Elexon does not specify pagination or an upstream history-completeness guarantee.
-- Production deployment configuration is prepared but not applied. The repository has not been published, and no deployment has been created or verified.
+- Production deployment configuration is prepared but not applied. The repository is public on GitHub, but no deployment has been created or verified.
+
+## Assignment readiness
+
+| Requirement | Status | Evidence or remaining work |
+|---|---|---|
+| React frontend and Python API | PASS | Vite/React dashboard and FastAPI endpoints are included. |
+| FUELHH wind actuals and WINDFOR forecasts | PASS | Bounded Elexon stream requests, validation, cutoff selection, and coverage reporting are implemented. |
+| January 2026 decision dates and correct next-day delivery | PASS (fixture-tested) | Automated tests cover all 31 decision dates, including 31 January to 1 February. |
+| Quantitative forecast-accuracy evaluation | PARTIAL | Metric formulas are tested, but reported metrics remain unavailable until Elexon confirms the WINDFOR interval statistic and population compatibility. |
+| Docker support | PASS (locally tested) | Both images built, Compose health checks passed, and the frontend-to-backend proxy returned live analysis data. |
+| Vercel/Heroku deployment | PARTIAL | Vercel and Render configuration and instructions are prepared; no public service has been deployed or verified. |
+| Public GitHub repository | PASS | `MANASVI011/uk-wind-forecast-analytics` is public and the current `main` branch tracks `origin/main`. |
+| Unlisted YouTube demonstration (10 minutes maximum) | ACTION REQUIRED | See [DEMO_SCRIPT.md](./DEMO_SCRIPT.md); recording and upload are not claimed. |
+| Submission form and incognito URL verification | ACTION REQUIRED | Complete the form and verify each submitted URL in a fresh/incognito browser session. |
+| AI-tool disclosure | PASS | See the disclosure below. |
+
+This table describes repository readiness only. A passing implementation/test status does not establish a successful public deployment, a completed video, or submission-form completion.
+
+## Demo recording guide
+
+The prepared two-part speaking script and screen sequence are in [DEMO_SCRIPT.md](./DEMO_SCRIPT.md). Keep the customer overview and technical walkthrough each within five minutes and the complete unlisted video within ten minutes. The script explicitly avoids unsupported accuracy claims and identifies the still-unverified forecast semantics.
 
 ## AI disclosure
 
-AI assistance was used to investigate the Elexon API, implement the project scaffolding and data integration, and create tests and documentation. Live Elexon values were retrieved for manual verification; unit-test fixtures are synthetic and labelled as such.
-=======
-# uk-wind-forecast-analytics
->>>>>>> f2b18fa1c7237d17da54e1bccf58b1ab286e67a3
+AI assistance was used to inspect and improve the existing project, investigate the Elexon API, implement tests/documentation, and prepare the demo script. Live Elexon API responses were sampled for manual verification; automated fixtures are synthetic and labelled as such.
